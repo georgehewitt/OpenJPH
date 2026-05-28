@@ -106,10 +106,16 @@ bold "4. Building both (Release)"
 for d in unpatched patched; do
     rm -rf "$d/build"
     mkdir "$d/build"
-    (cd "$d/build" \
-         && cmake -DCMAKE_BUILD_TYPE=Release .. >/dev/null 2>&1 \
-         && make -j"$(nproc)" >/dev/null 2>&1) \
-        || { c_red "build failed for $d"; kv "build_$d" "FAILED"; exit 2; }
+    if ! (cd "$d/build" \
+              && cmake -DCMAKE_BUILD_TYPE=Release .. >"$WORKDIR/$d-cmake.log" 2>&1 \
+              && make -j"$(nproc)" >"$WORKDIR/$d-build.log" 2>&1); then
+        c_red "build failed for $d (logs at $WORKDIR/$d-{cmake,build}.log)"
+        kv "build_$d" "FAILED"
+        # Bundle the last 40 lines of the build log into the result file.
+        say "--- last 40 lines of $d build log ---"
+        tail -40 "$WORKDIR/$d-build.log" 2>/dev/null >> "$RESULT" || true
+        exit 2
+    fi
     echo "  $d built"
 done
 
